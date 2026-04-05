@@ -7,9 +7,20 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    ConversationHandler,
+    MessageHandler,
+    filters,
 )
 from src.config import TELEGRAM_BOT_TOKEN
 from src.yarig import YarigClient
+from src.consejo import (
+    build_board_table,
+    build_board_keyboard,
+    resolve_target,
+    dispatch_task,
+    assemble_full_response,
+    format_target_label,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -18,6 +29,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 yarig = YarigClient()
+
+# Conversation state for interactive consejo flow
+CONSEJO_AWAITING_TASK = 0
 
 
 # ── Inline task panel ───────────────────────────────────────
@@ -252,9 +266,114 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/pedir <nombre> <tarea> — Pedir tarea\n"
         "/proyectos — Lista de proyectos\n"
         "/historial — Historial de tareas\n\n"
+        "*Consejo de Administracion*\n"
+        "/consejo — Mesa del consejo con controles\n"
+        "/consulta <target> <tarea> — Consultar al consejo\n"
+        "  Targets: consejo, operativo, creativo, pareja:ROL, ROL\n\n"
         "/help — Esta ayuda"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
+
+
+# ── Consejo de Administracion ──────────────────────────────
+
+
+async def cmd_consejo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the board table with inline controls."""
+    table = build_board_table()
+    keyboard = build_board_keyboard()
+    await update.message.reply_text(table, parse_mode="Markdown", reply_markup=keyboard)
+
+
+async def cmd_consulta(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Direct dispatch: /consulta <target> <tarea>"""
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "Uso: /consulta <target> <tarea>\n\n"
+            "Targets validos:\n"
+            "• `consejo` — los 8 consejeros\n"
+            "• `operativo` — CEO, CFO, COO, CTO\n"
+            "• `creativo` — CCO, CSO, CXO, CDO\n"
+            "• `pareja:CEO` — pareja coetanea\n"
+            "• `CEO`, `CTO`, etc. — silla individual\n\n"
+            "Ejemplo: /consulta operativo Revisar el presupuesto Q2",
+            parse_mode="Markdown",
+        )
+        return
+
+    target = context.args[0]
+    task = " ".join(context.args[1:])
+
+    try:
+        members = resolve_target(target)
+    except ValueError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return
+
+    await update.message.reply_text(
+        f"🏛 Consultando al consejo... ({len(members)} miembros)"
+    )
+
+    results = await dispatch_task(members, task)
+    messages = assemble_full_response(target, task, results)
+    for msg in messages:
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def consejo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle inline button press from /consejo — select target, then ask for task."""
+    query = update.callback_query
+    await query.answer()
+
+    target = query.data.replace("consejo:", "", 1)
+    context.user_data["consejo_target"] = target
+
+    label = format_target_label(target)
+    await query.message.reply_text(
+        f"Has seleccionado: *{label}*\n\n"
+        f"Escribe la tarea o pregunta para el consejo:\n"
+        f"(o /cancelar para anular)",
+        parse_mode="Markdown",
+    )
+    return CONSEJO_AWAITING_TASK
+
+
+async def process_consejo_task(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Process the task text after target selection."""
+    target = context.user_data.get("consejo_target")
+    if not target:
+        await update.message.reply_text("⚠️ No hay target seleccionado. Usa /consejo para empezar.")
+        return ConversationHandler.END
+
+    task = update.message.text.strip()
+    if not task:
+        await update.message.reply_text("⚠️ Escribe una tarea o pregunta.")
+        return CONSEJO_AWAITING_TASK
+
+    try:
+        members = resolve_target(target)
+    except ValueError as e:
+        await update.message.reply_text(f"⚠️ {e}")
+        return ConversationHandler.END
+
+    await update.message.reply_text(
+        f"🏛 Consultando al consejo... ({len(members)} miembros)"
+    )
+
+    results = await dispatch_task(members, task)
+    messages = assemble_full_response(target, task, results)
+    for msg in messages:
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    context.user_data.pop("consejo_target", None)
+    return ConversationHandler.END
+
+
+async def cmd_cancelar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Cancel an in-progress consejo consultation."""
+    context.user_data.pop("consejo_target", None)
+    await update.message.reply_text("Consulta cancelada.")
+    return ConversationHandler.END
 
 
 # ── Main ────────────────────────────────────────────────────
@@ -281,6 +400,23 @@ def main():
     app.add_handler(CommandHandler("proyectos", cmd_proyectos))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
+
+    # Consejo de Administracion
+    app.add_handler(CommandHandler("consejo", cmd_consejo))
+    app.add_handler(CommandHandler("consulta", cmd_consulta))
+    consejo_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(consejo_callback, pattern=r"^consejo:")],
+        states={
+            CONSEJO_AWAITING_TASK: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, process_consejo_task),
+            ],
+        },
+        fallbacks=[CommandHandler("cancelar", cmd_cancelar)],
+        per_user=True,
+        per_chat=True,
+        name="consejo_conversation",
+    )
+    app.add_handler(consejo_conv)
 
     # Callbacks
     app.add_handler(CallbackQueryHandler(handle_yarig_control, pattern="^yt_"))
