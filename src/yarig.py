@@ -419,6 +419,60 @@ class YarigClient:
         result = await self.add_task(task_text, project_id=project_id)
         return result.startswith("☑"), task_text
 
+    async def ensure_task_for_today(self, description: str, project_id: int = 312) -> tuple[bool, dict | None]:
+        data = await self.get_today_data()
+        tasks = (data or {}).get("tasks", [])
+        wanted = str(description).strip().lower()
+        for task in tasks:
+            if str(task.get("description", "")).strip().lower() == wanted:
+                return False, task
+
+        result = await self.add_task(description, project_id=project_id)
+        if not result.startswith("☑"):
+            return False, None
+
+        data = await self.get_today_data()
+        tasks = (data or {}).get("tasks", [])
+        for task in tasks:
+            if str(task.get("description", "")).strip().lower() == wanted:
+                return True, task
+        return True, None
+
+    async def start_task_if_needed(self, task_id: str) -> str:
+        data = await self.get_today_data()
+        if not data or not data.get("tasks"):
+            return "⚠️ No hay tareas para hoy"
+
+        task = next((t for t in data["tasks"] if str(t.get("id")) == str(task_id)), None)
+        if not task:
+            return "⚠️ Esa mision ya no aparece en la lista actual."
+
+        if task.get("finished") == "1":
+            return f"☑ Ya estaba completada: {task.get('description', '').strip()}"
+
+        if task.get("start_time") and not task.get("end_time"):
+            return f"▶ Mision ya en marcha: {task.get('description', '').strip()}"
+
+        return await self.iniciar_tarea_por_id(task_id)
+
+    async def close_task_by_description(self, description: str) -> str:
+        data = await self.get_today_data()
+        if not data or not data.get("tasks"):
+            return "⚠️ No hay tareas para hoy"
+
+        wanted = str(description).strip().lower()
+        task = next((t for t in data["tasks"] if str(t.get("description", "")).strip().lower() == wanted and t.get("finished") != "1"), None)
+        if not task:
+            done = next((t for t in data["tasks"] if str(t.get("description", "")).strip().lower() == wanted and t.get("finished") == "1"), None)
+            if done:
+                return f"☑ Mision ya completada: {done.get('description', '').strip()}"
+            return f"⚠️ No he encontrado una mision abierta llamada: {description}"
+
+        task_id = str(task.get("id"))
+        if not (task.get("start_time") and not task.get("end_time")):
+            await self.start_task_if_needed(task_id)
+        return await self.finalizar_tarea_por_id(task_id)
+
 
     async def add_task(self, description: str, project_id: int = 312, estimation: int = 1) -> str:
         tmp_id = int(time.time() * 1000)

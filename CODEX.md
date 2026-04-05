@@ -39,6 +39,8 @@ Integrado en Memorizer bot (csilvasantin/Memorizer).
   - XP y rango
   - peticiones pendientes
   - notificaciones recientes
+- `20:00` Europe/Madrid: crea o verifica `Inbox 0` y la pone en marcha
+- `20:30` Europe/Madrid: completa `Inbox 0` y cierra la jornada con fichar salida
 
 ## Servicio persistente
 - LaunchAgent: `~/Library/LaunchAgents/com.csilvasantin.yarigtelegram.plist`
@@ -48,6 +50,11 @@ Integrado en Memorizer bot (csilvasantin/Memorizer).
 ## Config relevante
 - `.env`: `TELEGRAM_BOT_TOKEN`, `YARIG_EMAIL`, `YARIG_PASSWORD`
 - `src/config.py`: `TELEGRAM_DAILY_CHAT_ID` y variables del consejo
+
+## Incidencia abierta
+- `Memorizer` y `Yarig.Telegram` siguen compartiendo el token de `Memorizer2Bot`.
+- Las automatizaciones horarias ya estan cableadas y el scheduler ya esta instalado.
+- El conflicto `409 Conflict` queda aplazado hasta manana, cuando se cree un bot propio para `Yarig.Telegram` o se reasigne `Memorizer` a otro token.
 
 ## Nota multi IA
 Antes de cerrar una sesion, dejar siempre documentado:

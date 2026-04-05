@@ -348,6 +348,57 @@ async def _post_daily_digest(context: ContextTypes.DEFAULT_TYPE) -> None:
         logger.warning(f"Daily digest failed: {exc}")
 
 
+async def _post_evening_inbox_zero(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not TELEGRAM_DAILY_CHAT_ID:
+        return
+    try:
+        created, task = await yarig.ensure_task_for_today("Inbox 0")
+        if task and task.get("id"):
+            start_result = await yarig.start_task_if_needed(str(task.get("id")))
+        else:
+            start_result = "⚠️ No he podido arrancar Inbox 0 porque no he encontrado la tarea tras crearla."
+        headline = "✦ *Cierre del dia iniciado*"
+        task_line = "→ _Inbox 0_"
+        created_line = "Nueva mision preparada." if created else "Inbox 0 ya existia para hoy."
+        await context.bot.send_message(
+            chat_id=int(TELEGRAM_DAILY_CHAT_ID),
+            text=(
+                f"{headline}\n"
+                f"{task_line}\n"
+                f"{created_line}\n"
+                f"{yarig._esc(start_result)}"
+            ),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        logger.info("daily evening inbox processed", extra={"chat_id": TELEGRAM_DAILY_CHAT_ID, "created": created})
+    except Exception as exc:
+        logger.warning(f"Daily evening inbox failed: {exc}")
+    finally:
+        await yarig.close()
+
+
+async def _post_evening_close_day(context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not TELEGRAM_DAILY_CHAT_ID:
+        return
+    try:
+        finish_result = await yarig.close_task_by_description("Inbox 0")
+        close_result = await yarig.fichar_salida("Inbox 0")
+        await context.bot.send_message(
+            chat_id=int(TELEGRAM_DAILY_CHAT_ID),
+            text=(
+                "✦ *Cierre del dia completado*\n"
+                f"→ {yarig._esc(finish_result)}\n"
+                f"→ {yarig._esc(close_result)}"
+            ),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        logger.info("daily evening close processed", extra={"chat_id": TELEGRAM_DAILY_CHAT_ID})
+    except Exception as exc:
+        logger.warning(f"Daily evening close failed: {exc}")
+    finally:
+        await yarig.close()
+
+
 async def handle_yarig_control(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle Yarig task control buttons."""
     query = update.callback_query
@@ -988,6 +1039,16 @@ def main():
             _post_daily_digest,
             time=dtime(hour=9, minute=0, tzinfo=MADRID_TZ),
             name="yarig_daily_digest",
+        )
+        job_queue.run_daily(
+            _post_evening_inbox_zero,
+            time=dtime(hour=20, minute=0, tzinfo=MADRID_TZ),
+            name="yarig_evening_inbox_zero",
+        )
+        job_queue.run_daily(
+            _post_evening_close_day,
+            time=dtime(hour=20, minute=30, tzinfo=MADRID_TZ),
+            name="yarig_evening_close_day",
         )
 
     logger.info("Yarig.Telegram bot started")

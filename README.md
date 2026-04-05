@@ -12,6 +12,7 @@ Replica la operativa diaria de Yarig.ai dentro de Telegram para que el equipo pu
 - bandeja de peticiones recibidas
 - resumen diario automatico en Telegram
 - mision de arranque automatica a las 08:00
+- cierre de jornada automatizado con Inbox 0 a las 20:00 y salida a las 20:30
 
 ## Comandos
 
@@ -57,8 +58,10 @@ El bot queda preparado para manana con dos rutinas fijas en horario de Madrid:
 
 - `08:00` crea o verifica la primera mision del dia con este formato: `Hoy es domingo 5 de abril de 2026`
 - `09:00` envia al grupo el resumen diario de Yarig con sesion, mision activa, XP, peticiones y notificaciones
+- `20:00` crea o verifica `Inbox 0` y la pone en marcha para cerrar el dia
+- `20:30` completa `Inbox 0` y ejecuta la salida de jornada
 
-La mision de las 08:00 evita duplicados: si ya existe para ese dia, no la vuelve a crear.
+La mision de las 08:00 evita duplicados: si ya existe para ese dia, no la vuelve a crear. `Inbox 0` tambien evita duplicados y, si ya existe, reutiliza la tarea del dia.
 
 ## Servicio persistente en macOS
 
@@ -90,3 +93,9 @@ Documentacion completa de los 25 endpoints JSON en [docs/yarig_api_map.md](docs/
 - python-telegram-bot
 - aiohttp (sesion con Yarig.ai)
 - Yarig.ai API (session-based PHP auth)
+
+## Incidencia conocida
+
+- Ahora mismo `Memorizer` y `Yarig.Telegram` comparten el token de `Memorizer2Bot`.
+- Eso provoca `409 Conflict` si ambos escuchan Telegram a la vez.
+- La logica de las automatizaciones ya queda guardada; la separacion definitiva de bots se hara manana cuando BotFather permita crear el nuevo bot.
