@@ -61,6 +61,8 @@
 | Endpoint | Params | Descripción |
 |----------|--------|-------------|
 | score/json_user_score | (none) | Puntuación actual (devuelve int) |
+| personal/json_get_user_days | (none) | Calendario anual de días (state, day, month, year) |
+| personal/json_get_scoring | (none) | Puntos diarios del mes (year, month, day, total, aux) |
 
 ### Estado de trabajo
 | Endpoint | Params | Descripción |

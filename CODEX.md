@@ -23,6 +23,8 @@ Bot propio: **@YarigAiBot** (token independiente, sin conflicto 409 con Memorize
 - `/estado`, `/score`, `/equipo`, `/pedir`, `/peticiones`, `/proyectos`, `/historial`, `/notificaciones`
 - `/ranking` — ranking de productividad del equipo (XP, tareas, estado, medallas)
 - `/dedicacion` — dedicacion del equipo hoy (fichajes, misiones activas/completadas por persona)
+- `/stats` — estadísticas anuales (días trabajados, estados, desglose por mes)
+- `/puntos` — puntos del mes actual (desglose diario, acumulado, rango)
 - `/random` — crea una mision sugerida y la documenta en Yarig.ai
 - `/mision_dia` — fuerza la creacion de la mision de arranque del dia
 - `/onboarding` — ejecuta manualmente la rutina de arranque del dia
@@ -63,6 +65,13 @@ Bot propio: **@YarigAiBot** (token independiente, sin conflicto 409 con Memorize
 ## API endpoints descubiertos (2026-04-07)
 - `productivity/json_get_team_by_order_or_rank` — ranking del equipo (params: column, order, rank, range)
 - `tasks/json_get_newer_company_tasks` — tareas y fichajes de toda la empresa hoy (param: id=0)
+- `personal/json_get_user_days` — calendario anual de días trabajados (state, day, month, year)
+- `personal/json_get_scoring` — puntos diarios del mes (year, month, day, total, aux)
+
+## Cambios sesion 2026-04-07 (tarde)
+7. **`/stats`**: nuevo comando — estadísticas anuales con calendario de días, estados (trabajando/ausente/remoto) y desglose mensual
+8. **`/puntos`**: nuevo comando — puntos del mes con desglose diario, acumulado, días positivos/negativos y rango actual
+9. **Consejeros 7/8**: CCO y CXO ahora arrancan (antes fallaban); solo CTO falla por red transitoria
 
 ## Cambios sesion 2026-04-07
 1. **Bot propio creado**: @YarigAiBot con token independiente — resuelve conflicto 409 con Memorizer

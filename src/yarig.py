@@ -34,6 +34,8 @@ NOTIFICATIONS_URL = f"{YARIG_BASE}/system_notification/json_get_user_notificatio
 WORKING_STATE_URL = f"{YARIG_BASE}/working_state/json_change_state"
 RANKING_URL = f"{YARIG_BASE}/productivity/json_get_team_by_order_or_rank"
 COMPANY_TASKS_URL = f"{YARIG_BASE}/tasks/json_get_newer_company_tasks"
+USER_DAYS_URL = f"{YARIG_BASE}/personal/json_get_user_days"
+SCORING_URL = f"{YARIG_BASE}/personal/json_get_scoring"
 
 
 COMPLETION_POINTS_FILE = Path(__file__).resolve().parent.parent / "state" / "completion_points.json"
@@ -790,6 +792,138 @@ class YarigClient:
                     line += f" — {project}"
 
             lines.append(line)
+
+        return "\n".join(lines)
+
+    # ── Estadísticas anuales ──────────────────────────────────
+
+    async def get_stats(self) -> str:
+        """Return annual stats summary (days worked, states calendar)."""
+        result = await self._request(USER_DAYS_URL)
+        if not result or not isinstance(result, dict):
+            return "⚠️ No he podido cargar las estadísticas anuales."
+
+        now = datetime.now(MADRID_TZ)
+        current_year = now.year
+        current_month = now.month
+
+        # Count days by state for the current year
+        state_counts: dict[str, int] = {}
+        monthly_counts: dict[int, int] = {}
+        total_days = 0
+
+        for _key, entry in result.items():
+            if not isinstance(entry, dict):
+                continue
+            try:
+                year = int(entry.get("year", 0))
+                month = int(entry.get("month", 0))
+                state = str(entry.get("state", "")).strip()
+            except (ValueError, TypeError):
+                continue
+
+            if year != current_year:
+                continue
+
+            total_days += 1
+            state_counts[state] = state_counts.get(state, 0) + 1
+            monthly_counts[month] = monthly_counts.get(month, 0) + 1
+
+        if total_days == 0:
+            return f"📊 *Estadísticas {current_year}*\n\nAún no hay datos registrados este año."
+
+        STATE_LABELS = {
+            "in": ("🟢", "Trabajando"),
+            "out": ("🔴", "Ausente"),
+            "holiday": ("🏖", "Vacaciones"),
+            "sick": ("🤒", "Baja"),
+            "remote": ("🏠", "Remoto"),
+        }
+
+        lines = [f"📊 *Estadísticas {current_year}*\n"]
+        lines.append(f"📅 Total días registrados: *{total_days}*\n")
+
+        # State breakdown
+        lines.append("*Por estado:*")
+        for state, count in sorted(state_counts.items(), key=lambda x: -x[1]):
+            icon, label = STATE_LABELS.get(state, ("⚪", state.capitalize() or "Otro"))
+            lines.append(f"  {icon} {self._esc(label)}: *{count}* días")
+
+        # Monthly breakdown for current year
+        lines.append("\n*Por mes:*")
+        month_names = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        for m in range(1, current_month + 1):
+            count = monthly_counts.get(m, 0)
+            bar = "█" * min(count, 20) if count else "—"
+            lines.append(f"  {month_names[m-1]}: {bar} *{count}*")
+
+        return "\n".join(lines)
+
+    # ── Puntos del mes ─────────────────────────────────────────
+
+    async def get_puntos(self) -> str:
+        """Return monthly scoring summary."""
+        result = await self._request(SCORING_URL)
+        if not result or not isinstance(result, list):
+            return "⚠️ No he podido cargar los puntos del mes."
+
+        now = datetime.now(MADRID_TZ)
+        current_year = now.year
+        current_month = now.month
+
+        # Filter current month entries
+        month_entries = []
+        for entry in result:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                year = int(entry.get("year", 0))
+                month = int(entry.get("month", 0))
+            except (ValueError, TypeError):
+                continue
+            if year == current_year and month == current_month:
+                month_entries.append(entry)
+
+        # Sort by day
+        month_entries.sort(key=lambda e: int(e.get("day", 0)))
+
+        month_names = SPANISH_MONTHS
+        month_label = month_names[current_month - 1].capitalize()
+
+        if not month_entries:
+            return f"🏅 *Puntos de {month_label} {current_year}*\n\nAún no hay puntos registrados este mes."
+
+        total_points = 0
+        positive_days = 0
+        negative_days = 0
+        lines = [f"🏅 *Puntos de {month_label} {current_year}*\n"]
+
+        for entry in month_entries:
+            try:
+                day = int(entry.get("day", 0))
+                points = int(entry.get("total", 0))
+                aux = entry.get("aux", "")
+            except (ValueError, TypeError):
+                continue
+
+            total_points += points
+            if points > 0:
+                positive_days += 1
+            elif points < 0:
+                negative_days += 1
+
+            sign = "+" if points >= 0 else ""
+            icon = "🟢" if points > 0 else ("🔴" if points < 0 else "⚪")
+            aux_text = f" _{self._esc(str(aux))}_" if aux else ""
+            lines.append(f"  {icon} Día {day}: *{sign}{points}*{aux_text}")
+
+        lines.insert(1, f"📈 Total acumulado: *{total_points:+d}* puntos")
+        lines.insert(2, f"🟢 {positive_days} días positivos · 🔴 {negative_days} días negativos\n")
+
+        # Current XP score
+        score = await self._get_score_value()
+        score_icon, rank = self._score_rank(score)
+        lines.append(f"\n{score_icon} XP actual: *{score}* · Rango: *{self._esc(rank)}*")
 
         return "\n".join(lines)
 

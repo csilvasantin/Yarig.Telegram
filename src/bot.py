@@ -87,6 +87,8 @@ HELP_TEXT = (
     "/equipo — Miembros del equipo\n"
     "/ranking — Ranking de productividad\n"
     "/dedicacion — Dedicacion del equipo hoy\n"
+    "/stats — Estadísticas anuales\n"
+    "/puntos — Puntos del mes\n"
     "/pedir <nombre> <tarea> — Pedir tarea\n"
     "/peticiones — Bandeja de entrada de peticiones\n"
     "/proyectos [texto] — Lista o busca proyectos\n"
@@ -811,6 +813,18 @@ async def cmd_dedicacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(result, parse_mode="Markdown")
 
 
+async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show annual statistics."""
+    result = await yarig.get_stats()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_puntos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show monthly points breakdown."""
+    result = await yarig.get_puntos()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
 async def cmd_pedir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send task request to a teammate."""
     if not context.args or len(context.args) < 2:
@@ -1118,6 +1132,8 @@ def main():
     app.add_handler(CommandHandler("equipo", cmd_equipo))
     app.add_handler(CommandHandler("ranking", cmd_ranking))
     app.add_handler(CommandHandler("dedicacion", cmd_dedicacion))
+    app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("puntos", cmd_puntos))
     app.add_handler(CommandHandler("pedir", cmd_pedir))
     app.add_handler(CommandHandler("peticiones", cmd_peticiones))
     app.add_handler(CommandHandler("proyectos", cmd_proyectos))
