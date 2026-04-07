@@ -1,22 +1,28 @@
 # Proyecto 09 — Yarig.Telegram
 
-## Estado (2026-04-05): CONSEJO + YARIG OPERATIVO Y PROGRAMADO PARA MANANA
+## Estado (2026-04-07): BOT PROPIO @YarigAiBot OPERATIVO EN WINDOWS
 
 Control de Yarig.ai desde Telegram + Consejo de Administracion con 8 sillas IA.
-Integrado en Memorizer bot (csilvasantin/Memorizer).
+Bot propio: **@YarigAiBot** (token independiente, sin conflicto 409 con Memorizer).
 
 ## Que queda vivo en el repo
 - panel Yarig con botones inline por `task id`
 - accesos rapidos inline desde `/yarig` a peticiones, avisos, estado, resumen, onboarding y offboarding
 - Consejo de Administracion con dispatch a las 8 sillas
 - actas locales del consejo
-- arranque persistente por `launchd`
+- arranque persistente por `launchd` (macOS) o manual (Windows)
 - resumen diario y mision diaria automatica
+- **ranking de productividad** del equipo (`/ranking`)
+- **dedicacion del equipo** en tiempo real (`/dedicacion`)
+- auto-refresh del panel tras crear tarea
+- zona horaria Europe/Madrid en todas las horas mostradas
 
 ## Comandos Yarig
 - `/yarig`, `/tarea`, `/iniciar`, `/pausar`, `/finalizar`
 - `/fichar`, `/fichar salida`, `/extras`, `/extras fin`
 - `/estado`, `/score`, `/equipo`, `/pedir`, `/peticiones`, `/proyectos`, `/historial`, `/notificaciones`
+- `/ranking` — ranking de productividad del equipo (XP, tareas, estado, medallas)
+- `/dedicacion` — dedicacion del equipo hoy (fichajes, misiones activas/completadas por persona)
 - `/random` — crea una mision sugerida y la documenta en Yarig.ai
 - `/mision_dia` — fuerza la creacion de la mision de arranque del dia
 - `/onboarding` — ejecuta manualmente la rutina de arranque del dia
@@ -46,18 +52,33 @@ Integrado en Memorizer bot (csilvasantin/Memorizer).
 - `20:30` Europe/Madrid: completa `Inbox 0` y cierra la jornada con fichar salida
 
 ## Servicio persistente
-- LaunchAgent: `~/Library/LaunchAgents/com.csilvasantin.yarigtelegram.plist`
-- Script de gestion: `/Users/Carlos/Documents/Codex/Yarig.Telegram/manage_launchd.sh`
-- Estado esperado: una sola instancia estable del bot, sin dobles `getUpdates`
+- macOS: LaunchAgent `~/Library/LaunchAgents/com.csilvasantin.yarigtelegram.plist`
+- Windows: `python -m src.bot` (requiere `WindowsSelectorEventLoopPolicy` — ya incluido)
 
 ## Config relevante
 - `.env`: `TELEGRAM_BOT_TOKEN`, `YARIG_EMAIL`, `YARIG_PASSWORD`
 - `src/config.py`: `TELEGRAM_DAILY_CHAT_ID` y variables del consejo
+- Bot Telegram: **@YarigAiBot** (token propio)
 
-## Incidencia abierta
-- `Memorizer` y `Yarig.Telegram` siguen compartiendo el token de `Memorizer2Bot`.
-- Las automatizaciones horarias ya estan cableadas y el scheduler ya esta instalado.
-- El conflicto `409 Conflict` queda aplazado hasta manana, cuando se cree un bot propio para `Yarig.Telegram` o se reasigne `Memorizer` a otro token.
+## API endpoints descubiertos (2026-04-07)
+- `productivity/json_get_team_by_order_or_rank` — ranking del equipo (params: column, order, rank, range)
+- `tasks/json_get_newer_company_tasks` — tareas y fichajes de toda la empresa hoy (param: id=0)
+
+## Cambios sesion 2026-04-07
+1. **Bot propio creado**: @YarigAiBot con token independiente — resuelve conflicto 409 con Memorizer
+2. **Fix Windows**: `asyncio.WindowsSelectorEventLoopPolicy()` para evitar `ConnectError` en `start_tls`
+3. **`/ranking`**: nuevo comando — ranking de productividad del equipo con XP, tareas, medallas y estado
+4. **`/dedicacion`**: nuevo comando — dedicacion del equipo hoy con fichajes, misiones activas y completadas
+5. **Auto-refresh panel**: tras crear tarea (por cualquier via) se envia automaticamente el panel `/yarig`
+6. **Zona horaria Madrid**: todas las horas se convierten de UTC a Europe/Madrid antes de mostrar
+   - `_parse_dt` ahora marca timestamps como UTC
+   - `_format_dt_madrid` convierte a hora local Barcelona
+   - `_format_elapsed_compact` usa `datetime.now(UTC)` para calculos correctos
+
+## Incidencias resueltas
+- ~~Conflicto 409 Memorizer/Yarig.Telegram~~ → bot propio @YarigAiBot
+- ~~Horas 2h atrasadas~~ → conversion UTC a Europe/Madrid
+- ~~ConnectError en Windows~~ → WindowsSelectorEventLoopPolicy
 
 ## Nota multi IA
 Antes de cerrar una sesion, dejar siempre documentado:

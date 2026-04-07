@@ -3,8 +3,9 @@
 import json
 import logging
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import aiohttp
 
 from src.config import YARIG_EMAIL, YARIG_PASSWORD
@@ -31,6 +32,8 @@ UPDATE_REQUEST_STATE_URL = f"{YARIG_BASE}/tasks/json_update_state_task_request"
 OPEN_TASK_FROM_REQUEST_URL = f"{YARIG_BASE}/tasks/json_add_open_task_from_task_request"
 NOTIFICATIONS_URL = f"{YARIG_BASE}/system_notification/json_get_user_notifications"
 WORKING_STATE_URL = f"{YARIG_BASE}/working_state/json_change_state"
+RANKING_URL = f"{YARIG_BASE}/productivity/json_get_team_by_order_or_rank"
+COMPANY_TASKS_URL = f"{YARIG_BASE}/tasks/json_get_newer_company_tasks"
 
 
 COMPLETION_POINTS_FILE = Path(__file__).resolve().parent.parent / "state" / "completion_points.json"
@@ -40,16 +43,34 @@ SPANISH_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado
 SPANISH_MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+UTC = timezone.utc
+
+
 def _parse_dt(value: str | None) -> datetime | None:
+    """Parse a datetime string from Yarig API (UTC) and return aware datetime."""
     if not value:
         return None
     raw = str(value).strip()
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
-            return datetime.strptime(raw, fmt)
+            return datetime.strptime(raw, fmt).replace(tzinfo=UTC)
         except ValueError:
             continue
     return None
+
+
+def _to_madrid(dt: datetime) -> datetime:
+    """Convert an aware datetime to Madrid timezone."""
+    return dt.astimezone(MADRID_TZ)
+
+
+def _format_dt_madrid(value: str | None) -> str:
+    """Format a Yarig API datetime string in Madrid timezone (HH:MM)."""
+    dt = _parse_dt(value)
+    if dt is None:
+        return ""
+    return _to_madrid(dt).strftime("%H:%M")
 
 
 def _load_completion_points() -> dict[str, dict]:
@@ -101,9 +122,9 @@ def _format_elapsed_compact(start_value: str | None, end_value: str | None = Non
     start_dt = _parse_dt(start_value)
     if start_dt is None:
         return ""
-    end_dt = _parse_dt(end_value) if end_value else datetime.now()
+    end_dt = _parse_dt(end_value) if end_value else datetime.now(UTC)
     if end_dt is None:
-        end_dt = datetime.now()
+        end_dt = datetime.now(UTC)
     total_seconds = max(int((end_dt - start_dt).total_seconds()), 0)
     hours, remainder = divmod(total_seconds, 3600)
     minutes = remainder // 60
@@ -305,12 +326,13 @@ class YarigClient:
         if clocking:
             entry = clocking[0]
             name = self._esc(entry.get("name", ""))
-            dt = entry.get("datetime", "?")
-            journey_elapsed = _format_elapsed_compact(dt)
+            dt_raw = entry.get("datetime", "")
+            dt_display = _format_dt_madrid(dt_raw) or dt_raw or "?"
+            journey_elapsed = _format_elapsed_compact(dt_raw)
             if journey_elapsed:
-                lines.append(f"\n◔ Jornada de *{name}* iniciada: {dt} · ⏱ {journey_elapsed}")
+                lines.append(f"\n◔ Jornada de *{name}* iniciada: {dt_display} · ⏱ {journey_elapsed}")
             else:
-                lines.append(f"\n◔ Jornada de *{name}* iniciada: {dt}")
+                lines.append(f"\n◔ Jornada de *{name}* iniciada: {dt_display}")
 
         return "\n".join(lines)
     async def get_status_summary(self) -> str:
@@ -329,9 +351,10 @@ class YarigClient:
         if clocking:
             entry = clocking[0]
             name = self._esc(entry.get("name", ""))
-            dt = entry.get("datetime", "?")
-            journey_elapsed = _format_elapsed_compact(dt)
-            journey_line = f"◔ Sesion activa: *{name}* desde {dt}"
+            dt_raw = entry.get("datetime", "")
+            dt_display = _format_dt_madrid(dt_raw) or dt_raw or "?"
+            journey_elapsed = _format_elapsed_compact(dt_raw)
+            journey_line = f"◔ Sesion activa: *{name}* desde {dt_display}"
             if journey_elapsed:
                 journey_line += f"\n⏱ Tiempo transcurrido: {journey_elapsed}"
             lines.append(journey_line)
@@ -341,12 +364,12 @@ class YarigClient:
         if active:
             desc = self._esc(active.get("description", "").strip())
             project = self._esc(active.get("project", ""))
-            start_time = active.get("start_time", "?")
+            start_display = _format_dt_madrid(active.get("start_time")) or active.get("start_time", "?")
             task_elapsed = _format_elapsed_compact(active.get("start_time"), active.get("end_time"))
             line = f"● Tarea activa: *{desc}*"
             if project:
                 line += f" — _{project}_"
-            line += f"\n◔ Inicio: {start_time}"
+            line += f"\n◔ Inicio: {start_display}"
             if task_elapsed:
                 line += f"\n⏱ Dedicado a esta tarea: {task_elapsed}"
             lines.append(line)
@@ -642,6 +665,132 @@ class YarigClient:
         for m in mates:
             name = self._esc(m.get("name", "?"))
             lines.append(f"• {name}")
+        return "\n".join(lines)
+
+    # ── Ranking ────────────────────────────────────────────
+
+    async def get_ranking(self) -> str:
+        result = await self._request(RANKING_URL, {
+            "column": "points", "order": "desc", "rank": "points", "range": "",
+        })
+        if not result or not isinstance(result, list):
+            return "⚠️ No he podido cargar el ranking ahora mismo."
+
+        STATE_ICONS = {
+            "Trabajando": "🟢", "Gestionando tareas": "🟡",
+            "En casa": "🔴", "Reunión": "🔵",
+        }
+
+        active = [m for m in result if m.get("total_points") is not None]
+        inactive = [m for m in result if m.get("total_points") is None]
+        active.sort(key=lambda m: int(m.get("total_points") or 0), reverse=True)
+
+        lines = [f"🏆 *Ranking Yarig.ai* — {len(result)} miembros\n"]
+
+        for pos, m in enumerate(active, 1):
+            name = self._esc(m.get("name", "?"))
+            points = int(m.get("total_points") or 0)
+            started = int(m.get("total_started_tasks") or 0)
+            finished = int(m.get("total_finished_tasks") or 0)
+            state = m.get("state") or ""
+            state_icon = STATE_ICONS.get(state, "⚪")
+            score_icon, _ = self._score_rank(points)
+
+            medal = ""
+            if pos == 1:
+                medal = "🥇 "
+            elif pos == 2:
+                medal = "🥈 "
+            elif pos == 3:
+                medal = "🥉 "
+
+            lines.append(
+                f"{medal}{pos}. {state_icon} *{name}* — {score_icon} {points:+d} XP"
+                f"\n     ▶ {started} iniciadas · ☑ {finished} completadas"
+            )
+
+        if inactive:
+            names = ", ".join(self._esc(m.get("name", "?")) for m in inactive)
+            lines.append(f"\n◌ Sin actividad: _{names}_")
+
+        return "\n".join(lines)
+
+    # ── Dedicacion del equipo ──────────────────────────────
+
+    async def get_dedication(self) -> str:
+        result = await self._request(COMPANY_TASKS_URL, {"id": 0})
+        if not result or not isinstance(result, dict):
+            return "⚠️ No he podido cargar la dedicacion del equipo."
+
+        tasks = result.get("tasks", [])
+        clockings = result.get("clockings", [])
+
+        # Group clockings by user (entry time)
+        user_clockin: dict[str, str] = {}
+        for c in clockings:
+            uid = c.get("id_user", "")
+            if c.get("type") == "0" and uid not in user_clockin:
+                user_clockin[uid] = c.get("datetime", "")
+
+        # Group tasks by user
+        user_tasks: dict[str, dict] = {}
+        for t in tasks:
+            uid = t.get("id_user", "")
+            if uid not in user_tasks:
+                user_tasks[uid] = {
+                    "name": t.get("name", "?"),
+                    "tasks": [],
+                    "active": None,
+                    "finished": 0,
+                    "total": 0,
+                }
+            entry = user_tasks[uid]
+            entry["total"] += 1
+            entry["tasks"].append(t)
+            if t.get("finished") == "1":
+                entry["finished"] += 1
+            elif t.get("start_time") and not t.get("end_time"):
+                entry["active"] = t
+
+        # Also add users with clockings but no tasks
+        for c in clockings:
+            uid = c.get("id_user", "")
+            if uid not in user_tasks and c.get("type") == "0":
+                user_tasks[uid] = {
+                    "name": c.get("name", "?"),
+                    "tasks": [],
+                    "active": None,
+                    "finished": 0,
+                    "total": 0,
+                }
+
+        if not user_tasks:
+            return "📊 *Dedicacion del equipo*\n\nAun no hay actividad registrada hoy."
+
+        lines = [f"📊 *Dedicacion del equipo* — {len(user_tasks)} activos hoy\n"]
+
+        for uid, data in sorted(user_tasks.items(), key=lambda x: x[1]["name"]):
+            name = self._esc(data["name"])
+            clockin_dt = user_clockin.get(uid)
+            elapsed = _format_elapsed_compact(clockin_dt) if clockin_dt else ""
+            clockin_display = _format_dt_madrid(clockin_dt) if clockin_dt else ""
+
+            line = f"👤 *{name}*"
+            if clockin_display:
+                line += f" · 🕐 {clockin_display}"
+            if elapsed:
+                line += f" · ⏱ {elapsed}"
+            line += f"\n     ☑ {data['finished']}/{data['total']} misiones"
+
+            if data["active"]:
+                desc = self._esc(data["active"].get("description", "").strip())
+                project = self._esc(data["active"].get("project", ""))
+                line += f"\n     ● _{desc}_"
+                if project:
+                    line += f" — {project}"
+
+            lines.append(line)
+
         return "\n".join(lines)
 
     # ── Historial ───────────────────────────────────────────

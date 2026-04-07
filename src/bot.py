@@ -1,5 +1,10 @@
 """Yarig.Telegram — Control completo de Yarig.ai desde Telegram."""
 
+import sys
+if sys.platform == "win32":
+    import asyncio
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 import random
 import secrets
@@ -80,6 +85,8 @@ HELP_TEXT = (
     "/estado — Estado actual de jornada y tarea\n"
     "/score — Tu puntuación\n"
     "/equipo — Miembros del equipo\n"
+    "/ranking — Ranking de productividad\n"
+    "/dedicacion — Dedicacion del equipo hoy\n"
     "/pedir <nombre> <tarea> — Pedir tarea\n"
     "/peticiones — Bandeja de entrada de peticiones\n"
     "/proyectos [texto] — Lista o busca proyectos\n"
@@ -552,6 +559,7 @@ async def handle_task_project_picker(update: Update, context: ContextTypes.DEFAU
         f"→ Tarea: _{yarig._esc(payload['description'])}_",
         parse_mode="Markdown",
     )
+    await _send_yarig_panel(query.message)
 
 
 async def handle_requests_inbox(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -666,6 +674,7 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"→ Mision sugerida: _{yarig._esc(task_text)}_",
         parse_mode="Markdown",
     )
+    await _send_yarig_panel(update.message)
 
 
 async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -694,6 +703,7 @@ async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{result}\n→ Proyecto: *{project_name}*",
             parse_mode="Markdown",
         )
+        await _send_yarig_panel(update.message)
         return
 
     desc = raw
@@ -701,6 +711,7 @@ async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not projects:
         result = await yarig.add_task(desc)
         await update.message.reply_text(result)
+        await _send_yarig_panel(update.message)
         return
 
     token = secrets.token_urlsafe(6)
@@ -785,6 +796,18 @@ async def cmd_extras(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_equipo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show team members."""
     result = await yarig.get_team()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show team productivity ranking."""
+    result = await yarig.get_ranking()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_dedicacion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show team dedication for today."""
+    result = await yarig.get_dedication()
     await update.message.reply_text(result, parse_mode="Markdown")
 
 
@@ -1093,6 +1116,8 @@ def main():
     app.add_handler(CommandHandler("notificaciones", cmd_notificaciones))
     app.add_handler(CommandHandler("extras", cmd_extras))
     app.add_handler(CommandHandler("equipo", cmd_equipo))
+    app.add_handler(CommandHandler("ranking", cmd_ranking))
+    app.add_handler(CommandHandler("dedicacion", cmd_dedicacion))
     app.add_handler(CommandHandler("pedir", cmd_pedir))
     app.add_handler(CommandHandler("peticiones", cmd_peticiones))
     app.add_handler(CommandHandler("proyectos", cmd_proyectos))
