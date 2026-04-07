@@ -8,6 +8,9 @@ import logging
 import os
 import signal
 import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 from glob import glob
 from pathlib import Path
 
@@ -86,8 +89,9 @@ async def run_all():
 
     logger.info(f"Arrancando {len(apps)} bots de consejeros...")
 
-    # Inicializar todos — tolerante a tokens invalidos
+    # Inicializar todos — tolerante a tokens invalidos, con reintentos
     running: list[Application] = []
+    failed: list[Application] = []
     for app in apps:
         try:
             await app.initialize()
@@ -95,8 +99,25 @@ async def run_all():
             await app.updater.start_polling(allowed_updates=["message", "callback_query"])
             running.append(app)
             logger.info(f"  -> {app.bot.first_name} (@{app.bot.username}) en linea")
+            await asyncio.sleep(0.5)  # Espacio entre conexiones para evitar saturar TLS
         except Exception as e:
             logger.warning(f"  -> Fallo al arrancar un bot: {e}")
+            failed.append(app)
+
+    # Reintentar los fallidos tras una pausa
+    if failed:
+        logger.info(f"Reintentando {len(failed)} bots tras pausa...")
+        await asyncio.sleep(3)
+        for app in failed:
+            try:
+                await app.initialize()
+                await app.start()
+                await app.updater.start_polling(allowed_updates=["message", "callback_query"])
+                running.append(app)
+                logger.info(f"  -> {app.bot.first_name} (@{app.bot.username}) en linea (reintento)")
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"  -> Fallo definitivo: {e}")
 
     if not running:
         logger.error("Ningun bot pudo arrancar. Revisa los tokens.")
@@ -108,14 +129,18 @@ async def run_all():
     # Esperar hasta señal de parada
     stop_event = asyncio.Event()
 
-    def signal_handler():
-        stop_event.set()
-
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, signal_handler)
-
-    await stop_event.wait()
+    if sys.platform != "win32":
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: stop_event.set())
+        await stop_event.wait()
+    else:
+        # Windows: add_signal_handler no funciona, usar sleep loop
+        try:
+            while True:
+                await asyncio.sleep(1)
+        except (KeyboardInterrupt, SystemExit):
+            pass
 
     # Shutdown
     logger.info("Apagando consejeros...")
