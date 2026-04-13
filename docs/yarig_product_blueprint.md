@@ -34,7 +34,7 @@ La nueva Yarig.ai no deberia ser solo una web mas bonita. Debe ser un sistema de
 | Score / puntos | Puntuacion actual y mensual | Alta via `/score`, `/puntos`, `/stats` | Operativo |
 | Productividad equipo | Ranking y dedicacion | Alta via `/ranking`, `/dedicacion` | Operativo |
 | Equipo | Listado y busqueda de companeros | Media via `/equipo`, `/pedir` | Mejorar |
-| Proyectos | Buscar proyecto y crear tareas asociadas | Media via `/proyectos`, `/tarea Proyecto :: desc` | Prioritario |
+| Proyectos | Buscar proyecto y crear tareas asociadas | Media via `/proyectos`, `/proyecto`, `/tarea Proyecto :: desc` | En curso |
 | Clientes | Clientes y oportunidades | Baja | Pendiente |
 | Notificaciones | Avisos recientes | Media via `/notificaciones` | Mejorar acciones |
 | Muro | Feed, emergencias, actividad | Baja | Pendiente |
@@ -202,6 +202,7 @@ Pendiente:
 Comandos:
 
 - `/proyectos [texto]`;
+- `/proyecto <texto>`;
 - `/tarea Proyecto :: descripcion`;
 
 Endpoints usados:
@@ -210,8 +211,8 @@ Endpoints usados:
 
 Pendiente prioritario:
 
-- `/proyecto <nombre>`: ficha de proyecto;
-- tareas abiertas por proyecto;
+- `/proyecto <nombre>`: ficha de proyecto inicial;
+- tareas de hoy por proyecto;
 - historial por proyecto;
 - cliente asociado;
 - proximas acciones sugeridas por IA;

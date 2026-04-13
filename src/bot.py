@@ -90,6 +90,7 @@ HELP_TEXT = (
     "/pedir — Pedir tarea a un compañero\n"
     "/peticiones — Bandeja de entrada\n"
     "/proyectos — Lista o busca proyectos\n"
+    "/proyecto — Ficha movil de un proyecto\n"
     "/historial — Historial de tareas\n"
     "/notificaciones — Avisos recientes\n"
     "/random — Mision sugerida por el bot\n"
@@ -879,6 +880,13 @@ async def cmd_proyectos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(result, parse_mode="Markdown")
 
 
+async def cmd_proyecto(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show a compact mobile project profile."""
+    term = " ".join(context.args).strip() if context.args else ""
+    result = await yarig.get_project_profile(term)
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show current chat id for setup/debug."""
     chat = update.effective_chat
@@ -1134,6 +1142,7 @@ def main():
     app.add_handler(CommandHandler("pedir", cmd_pedir))
     app.add_handler(CommandHandler("peticiones", cmd_peticiones))
     app.add_handler(CommandHandler("proyectos", cmd_proyectos))
+    app.add_handler(CommandHandler("proyecto", cmd_proyecto))
     app.add_handler(CommandHandler("chatid", cmd_chatid))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))

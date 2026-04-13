@@ -49,6 +49,7 @@ Formato directo recomendado: `/tarea Proyecto :: Descripcion`
 | `/pedir <nombre> <tarea>` | Enviar peticion a compañero |
 | `/peticiones` | Ver y gestionar peticiones recibidas |
 | `/proyectos [texto]` | Lista o busca proyectos |
+| `/proyecto <texto>` | Ficha movil de proyecto con actividad de hoy y acciones rapidas |
 | `/historial` | Historial de tareas |
 | `/notificaciones` | Avisos recientes de Yarig |
 | `/resumen_diario` | Forzar el resumen diario en el chat |

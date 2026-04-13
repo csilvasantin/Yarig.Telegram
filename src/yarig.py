@@ -120,6 +120,22 @@ def _common_project_name(tasks: list[dict]) -> str:
     return ""
 
 
+def _normalize_lookup(value: str | None) -> str:
+    return "".join(ch.lower() for ch in str(value or "") if ch.isalnum())
+
+
+def _project_label(project: dict) -> str:
+    return str(project.get("label") or project.get("value") or project.get("name") or "Proyecto").strip()
+
+
+def _project_customer_label(project: dict) -> str:
+    for key in ("customer", "customer_name", "name_customer", "client", "client_name"):
+        value = str(project.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
 def _format_elapsed_compact(start_value: str | None, end_value: str | None = None) -> str:
     start_dt = _parse_dt(start_value)
     if start_dt is None:
@@ -1213,6 +1229,88 @@ class YarigClient:
             name = self._esc(project.get("label", project.get("value", "?")))
             pid = project.get("id", "?")
             lines.append(f"• {name} (id: {pid})")
+        return "\n".join(lines)
+
+    async def get_project_profile(self, term: str, customer_id: str = "2396") -> str:
+        """Return a first mobile project profile using known endpoints."""
+        clean_term = str(term or "").strip()
+        if not clean_term:
+            return (
+                "Uso: `/proyecto <nombre>`\n"
+                "Ejemplo: `/proyecto Admira`"
+            )
+
+        project = await self.find_project(clean_term, customer_id=customer_id)
+        if not project:
+            suggestions = await self.search_projects(term=clean_term, customer_id=customer_id, limit=5)
+            if not suggestions:
+                return f"⚠️ No he encontrado proyectos para: _{self._esc(clean_term)}_"
+            lines = [f"⚠️ No he encontrado una ficha clara para _{self._esc(clean_term)}_. Coincidencias:"]
+            for item in suggestions:
+                lines.append(f"• {self._esc(_project_label(item))} (id: {item.get('id', '?')})")
+            return "\n".join(lines)
+
+        label = _project_label(project)
+        project_id = str(project.get("id") or "?").strip()
+        customer = _project_customer_label(project)
+        label_key = _normalize_lookup(label)
+
+        data = await self.get_today_data()
+        tasks = (data or {}).get("tasks", [])
+        project_tasks = []
+        for task in tasks:
+            task_project = str(task.get("project") or "").strip()
+            task_project_key = _normalize_lookup(task_project)
+            if task_project_key and (task_project_key == label_key or task_project_key in label_key or label_key in task_project_key):
+                project_tasks.append(task)
+
+        active_count = sum(1 for task in project_tasks if task.get("start_time") and not task.get("end_time") and task.get("finished", "0") == "0")
+        pending_count = sum(1 for task in project_tasks if not task.get("start_time") and task.get("finished", "0") == "0")
+        paused_count = sum(1 for task in project_tasks if task.get("start_time") and task.get("end_time") and task.get("finished", "0") == "0")
+        finished_count = sum(1 for task in project_tasks if task.get("finished", "0") == "1")
+
+        lines = [
+            "▣ *Yarig.ai | Proyecto*",
+            f"*{self._esc(label)}*",
+            f"id: `{self._esc(project_id)}`",
+        ]
+        if customer:
+            lines.append(f"Cliente: _{self._esc(customer)}_")
+
+        lines.extend([
+            "",
+            "Actividad de hoy:",
+            f"● {active_count} activas · ◌ {pending_count} pendientes · ⏸ {paused_count} en pausa · ☑ {finished_count} completadas",
+        ])
+
+        if project_tasks:
+            indexed = list(enumerate(project_tasks, 1))
+            indexed.sort(key=lambda item: _task_sort_key(item[1]))
+            lines.append("")
+            for idx, task in indexed[:8]:
+                finished = task.get("finished", "0") == "1"
+                active = task.get("start_time") and not task.get("end_time") and not finished
+                paused = task.get("start_time") and task.get("end_time") and not finished
+                icon = "☑" if finished else ("●" if active else ("⏸" if paused else "◌"))
+                desc = self._esc(str(task.get("description") or "").strip())
+                line = f"{idx}. {icon} {desc}"
+                elapsed = _format_elapsed_compact(task.get("start_time"), task.get("end_time")) if task.get("start_time") else ""
+                if elapsed:
+                    line += f" · ⏱ {elapsed}"
+                lines.append(line)
+            if len(project_tasks) > 8:
+                lines.append(f"… y {len(project_tasks) - 8} mas")
+        else:
+            lines.append("\nNo detecto tareas de hoy vinculadas a este proyecto en el panel diario.")
+
+        lines.extend([
+            "",
+            "Acciones rapidas:",
+            f"`/tarea {self._esc(label)} :: descripcion`",
+            f"`/proyectos {self._esc(clean_term)}`",
+            "",
+            "Pendiente de descubrir: endpoint de ficha completa, historico y cliente asociado.",
+        ])
         return "\n".join(lines)
 
     async def close(self):
