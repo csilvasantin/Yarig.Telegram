@@ -1,7 +1,7 @@
 # Proyecto 09 — Yarig.Telegram
 
 Repositorio oficial: **https://github.com/csilvasantin/02.-YarigTelegram**
-Version desplegada: **v.2026.13.04.3**
+Version desplegada: **v.2026.13.04.4**
 
 ## Estado (2026-04-08): BOT PROPIO @YarimTelegramBot OPERATIVO EN MAC MINI
 
