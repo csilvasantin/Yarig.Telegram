@@ -47,12 +47,16 @@ Formato con proyecto: `/tarea Proyecto :: Descripcion`
 | `/extras` | Iniciar horas extras |
 | `/extras fin` | Finalizar horas extras |
 | `/estado` | Estado actual: jornada, tarea activa y puntuacion |
+| `/personal` | Bloque personal: jornada, foco, XP y acciones |
 | `/score` | Tu puntuacion |
 
-### Equipo y contexto
+### Bloques y contexto
 | Comando | Descripcion |
 |---------|-------------|
-| `/equipo` | Miembros del equipo |
+| `/equipo` | Bloque equipo: actividad, ranking y accesos |
+| `/equipo_lista` | Miembros del equipo |
+| `/finanzas` | Bloque finanzas: facturas, clientes y tareas financieras |
+| `/marca` | Bloque marca/RRSS: pantalla de marca y tareas de marketing |
 | `/pedir <nombre> <tarea>` | Enviar peticion a compañero |
 | `/peticiones` | Ver y gestionar peticiones recibidas |
 | `/clientes [texto]` | Lista o busca clientes |

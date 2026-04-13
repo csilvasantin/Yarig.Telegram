@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 import time
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -36,6 +37,9 @@ RANKING_URL = f"{YARIG_BASE}/productivity/json_get_team_by_order_or_rank"
 COMPANY_TASKS_URL = f"{YARIG_BASE}/tasks/json_get_newer_company_tasks"
 USER_DAYS_URL = f"{YARIG_BASE}/personal/json_get_user_days"
 SCORING_URL = f"{YARIG_BASE}/personal/json_get_scoring"
+BILLING_BILLS_PAGE = f"{YARIG_BASE}/billing/bills"
+BILLING_INOUT_PAGE = f"{YARIG_BASE}/billing/inout"
+BRAND_SOCIAL_PAGE = f"{YARIG_BASE}/brand/social_media"
 
 
 COMPLETION_POINTS_FILE = Path(__file__).resolve().parent.parent / "state" / "completion_points.json"
@@ -239,6 +243,37 @@ class YarigClient:
         except Exception as e:
             logger.warning(f"Yarig request error: {e}")
             return None
+
+    async def _get_page_html(self, url: str) -> str | None:
+        await self._ensure_session()
+        if not self._logged_in:
+            if not await self.login():
+                return None
+        try:
+            async with self._session.get(url) as resp:
+                if resp.status != 200:
+                    logger.warning("Yarig page failed: %s status=%s", url, resp.status)
+                    return None
+                return await resp.text()
+        except Exception as e:
+            logger.warning("Yarig page error: %s", e)
+            return None
+
+    def _page_probe_line(self, html: str | None, label: str, path: str) -> str:
+        if not html:
+            return f"• {label}: no disponible ahora"
+
+        title = ""
+        title_match = re.search(r"<(?:h1|h2|title)[^>]*>(.*?)</(?:h1|h2|title)>", html, re.DOTALL | re.IGNORECASE)
+        if title_match:
+            title = re.sub(r"<[^>]+>", " ", title_match.group(1))
+            title = " ".join(title.split())
+
+        amounts = re.findall(r"(?:€\s*)?-?\d[\d\.\,]*\s*€", html)
+        suffix = f" · {len(amounts)} importes detectados" if amounts else ""
+        if title:
+            return f"• {label}: {self._esc(title[:60])}{suffix}"
+        return f"• {label}: pantalla localizada en `{path}`{suffix}"
 
     def _cache_is_fresh(self, cached: dict | None) -> bool:
         if not cached:
@@ -708,6 +743,52 @@ class YarigClient:
             lines.append(f"• {name}")
         return "\n".join(lines)
 
+    async def get_team_block(self) -> str:
+        mates = await self.get_team_data()
+        ranking = await self._request(RANKING_URL, {
+            "column": "points", "order": "desc", "rank": "points", "range": "",
+        })
+        company = await self._request(COMPANY_TASKS_URL, {"id": 0})
+
+        active_today = 0
+        open_tasks = 0
+        finished_tasks = 0
+        leaders: list[str] = []
+
+        if isinstance(company, dict):
+            tasks = [t for t in company.get("tasks", []) if isinstance(t, dict)]
+            active_today = len({str(t.get("id_user", "")) for t in tasks if str(t.get("id_user", "")).strip()})
+            open_tasks = sum(1 for t in tasks if t.get("finished") != "1")
+            finished_tasks = sum(1 for t in tasks if t.get("finished") == "1")
+
+        if isinstance(ranking, list):
+            ranked = [m for m in ranking if m.get("total_points") is not None]
+            ranked.sort(key=lambda m: int(m.get("total_points") or 0), reverse=True)
+            for m in ranked[:3]:
+                name = self._esc(str(m.get("name", "?")))
+                points = int(m.get("total_points") or 0)
+                leaders.append(f"• {name}: *{points:+d}* XP")
+
+        lines = [
+            "👥 *Bloque Equipo*",
+            "",
+            f"Personas localizadas: *{len(mates)}*" if mates else "Personas localizadas: no disponible",
+            f"Actividad hoy: *{active_today}* personas · ☑ {finished_tasks} · ◌ {open_tasks}",
+            "",
+            "*Top XP:*",
+        ]
+        lines.extend(leaders or ["• Ranking no disponible ahora"])
+        lines.extend([
+            "",
+            "*Acciones:*",
+            "`/equipo_lista` — listado de compañeros",
+            "`/ranking` — ranking completo",
+            "`/dedicacion` — dedicacion de hoy",
+            "`/pedir nombre texto` — pedir tarea",
+            "`/peticiones` — bandeja de peticiones",
+        ])
+        return "\n".join(lines)
+
     # ── Ranking ────────────────────────────────────────────
 
     async def get_ranking(self) -> str:
@@ -964,6 +1045,104 @@ class YarigClient:
         score_icon, rank = self._score_rank(score)
         lines.append(f"\n{score_icon} XP actual: *{score}* · Rango: *{self._esc(rank)}*")
 
+        return "\n".join(lines)
+
+    async def get_personal_block(self) -> str:
+        data = await self.get_today_data()
+        score = await self._get_score_value()
+        score_icon, rank = self._score_rank(score)
+        scoring = await self._request(SCORING_URL)
+
+        tasks = (data or {}).get("tasks", []) if isinstance(data, dict) else []
+        clocking = (data or {}).get("clocking", []) if isinstance(data, dict) else []
+        active = next(
+            (t for t in tasks if t.get("start_time") and not t.get("end_time") and t.get("finished") == "0"),
+            None,
+        )
+        pending_count = sum(1 for t in tasks if not t.get("start_time") and t.get("finished", "0") == "0")
+        finished_count = sum(1 for t in tasks if t.get("finished") == "1")
+
+        today_points = None
+        now = datetime.now(MADRID_TZ)
+        if isinstance(scoring, list):
+            for entry in scoring:
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    if int(entry.get("year", 0)) == now.year and int(entry.get("month", 0)) == now.month and int(entry.get("day", 0)) == now.day:
+                        today_points = int(entry.get("total", 0))
+                        break
+                except (TypeError, ValueError):
+                    continue
+
+        lines = [
+            "👤 *Bloque Personal*",
+            "",
+            f"{score_icon} XP actual: *{score}* · Rango: *{self._esc(rank)}*",
+        ]
+        if today_points is not None:
+            lines.append(f"Hoy: *{today_points:+d}* puntos")
+
+        if clocking:
+            entry = clocking[0]
+            start = _format_dt_madrid(entry.get("datetime"))
+            elapsed = _format_elapsed_compact(entry.get("datetime"))
+            lines.append(f"Jornada: entrada {start or '?'} · {elapsed or 'en curso'}")
+        else:
+            lines.append("Jornada: sin entrada registrada")
+
+        if active:
+            desc = self._esc(str(active.get("description", "")).strip())
+            elapsed = _format_elapsed_compact(active.get("start_time"), active.get("end_time"))
+            lines.append(f"Foco actual: _{desc}_ {elapsed}".strip())
+        else:
+            lines.append("Foco actual: sin mision activa")
+
+        lines.extend([
+            f"Misiones: ☑ {finished_count} · ◌ {pending_count}",
+            "",
+            "*Acciones:*",
+            "`/fichar` · `/fichar salida`",
+            "`/tarea texto` · `/iniciar` · `/pausar` · `/finalizar`",
+            "`/score` · `/puntos` · `/stats` · `/historial`",
+        ])
+        return "\n".join(lines)
+
+    async def get_finance_block(self) -> str:
+        bills_html = await self._get_page_html(BILLING_BILLS_PAGE)
+        inout_html = await self._get_page_html(BILLING_INOUT_PAGE)
+        lines = [
+            "💶 *Bloque Finanzas*",
+            "",
+            self._page_probe_line(bills_html, "Facturas", "/billing/bills"),
+            self._page_probe_line(inout_html, "Entradas / salidas", "/billing/inout"),
+            "",
+            "*Acciones disponibles ahora:*",
+            "`/clientes` — clientes",
+            "`/cliente nombre` — ficha de cliente",
+            "`/proyectos Cliente ::` — proyectos por cliente",
+            "`/tarea Finanzas :: descripcion` — crear mision financiera",
+            "",
+            "*Pendiente de descubrimiento:*",
+            "endpoints JSON de facturas, cobros, pagos, gastos y forecast.",
+        ]
+        return "\n".join(lines)
+
+    async def get_brand_block(self) -> str:
+        brand_html = await self._get_page_html(BRAND_SOCIAL_PAGE)
+        lines = [
+            "📣 *Bloque Marca*",
+            "",
+            self._page_probe_line(brand_html, "Marca/RRSS", "/brand/social_media"),
+            "",
+            "*Acciones disponibles ahora:*",
+            "`/proyectos Marca ::` — proyectos de marca",
+            "`/tarea Marca :: descripcion` — crear mision de marca",
+            "`/consulta CCO briefing` — pedir criterio creativo al consejo",
+            "",
+            "*Pendiente de descubrimiento:*",
+            "calendario editorial, publicaciones, canales, estado de piezas y metricas.",
+        ]
         return "\n".join(lines)
 
     # ── Historial ───────────────────────────────────────────

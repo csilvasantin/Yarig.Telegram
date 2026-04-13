@@ -31,18 +31,18 @@ La nueva Yarig.ai no deberia ser solo una web mas bonita. Debe ser un sistema de
 | Historial tareas | Revisar actividad pasada | Media via `/historial` con parsing HTML | Endurecer |
 | Peticiones | Pedir, leer, aceptar tareas | Alta via `/pedir`, `/peticiones` y botones | Operativo |
 | Jornada | Entrada, salida, extras | Alta via `/fichar`, `/extras`, automatizaciones | Operativo |
-| Score / puntos | Puntuacion actual y mensual | Alta via `/score`, `/puntos`, `/stats` | Operativo |
+| Score / puntos | Puntuacion actual y mensual | Alta via `/personal`, `/score`, `/puntos`, `/stats` | Operativo |
 | Productividad equipo | Ranking y dedicacion | Alta via `/ranking`, `/dedicacion` | Operativo |
-| Equipo | Listado y busqueda de companeros | Media via `/equipo`, `/pedir` | Mejorar |
+| Equipo | Listado, ranking, dedicacion y peticiones | Alta via `/equipo`, `/equipo_lista`, `/pedir` | Operativo |
 | Proyectos | Buscar proyecto y crear tareas asociadas | Media via `/proyectos`, `/proyecto`, `/tarea Proyecto :: desc` | En curso |
 | Clientes | Clientes y oportunidades | Media via `/clientes`, `/cliente` | En curso |
 | Notificaciones | Avisos recientes | Media via `/notificaciones` | Mejorar acciones |
 | Muro | Feed, emergencias, actividad | Baja | Pendiente |
 | Reuniones | Reuniones y eventos | Sin cobertura | Pendiente |
-| Perfil | Datos del usuario, estado, preferencias | Baja | Pendiente |
+| Perfil | Datos del usuario, estado, preferencias | Media via `/personal` | En curso |
 | Admin | Gestion interna | Sin cobertura | Pendiente |
-| Facturacion | Bills, entradas/salidas | Sin cobertura | Pendiente |
-| Marca/RRSS | Social media / marca | Sin cobertura | Pendiente |
+| Facturacion | Bills, entradas/salidas | Baja via `/finanzas` con probe web | Descubrir endpoints |
+| Marca/RRSS | Social media / marca | Baja via `/marca` con probe web | Descubrir endpoints |
 | Consejo IA | Consultas a sillas IA y actas | Alta via `/consejo`, `/consulta`, `/actas` | Operativo |
 
 ## Cobertura Actual en Telegram

@@ -22,7 +22,7 @@ Bot propio: **@YarimTelegramBot** (token independiente, sin conflicto 409 con Me
 - `/login`, `/logout`, `/cuenta` — conectar cada usuario de Telegram con sus credenciales de Yarig.ai
 - `/yarig`, `/tarea`, `/iniciar`, `/pausar`, `/finalizar`
 - `/fichar`, `/fichar salida`, `/extras`, `/extras fin`
-- `/estado`, `/score`, `/equipo`, `/pedir`, `/peticiones`, `/clientes`, `/cliente`, `/proyectos`, `/proyecto`, `/historial`, `/notificaciones`
+- `/estado`, `/personal`, `/score`, `/equipo`, `/equipo_lista`, `/finanzas`, `/marca`, `/pedir`, `/peticiones`, `/clientes`, `/cliente`, `/proyectos`, `/proyecto`, `/historial`, `/notificaciones`
 - `/ranking` — ranking de productividad del equipo (XP, tareas, estado, medallas)
 - `/dedicacion` — dedicacion del equipo hoy (fichajes, misiones activas/completadas por persona)
 - `/stats` — estadísticas anuales (días trabajados, estados, desglose por mes)

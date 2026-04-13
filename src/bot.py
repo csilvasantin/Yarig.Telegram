@@ -112,8 +112,12 @@ HELP_TEXT = (
     "/extras — Iniciar o finalizar horas extras\n\n"
     "Equipo\n"
     "/estado — Estado actual de jornada y tarea\n"
+    "/personal — Bloque personal\n"
     "/score — Tu puntuacion\n"
-    "/equipo — Miembros del equipo\n"
+    "/equipo — Bloque equipo\n"
+    "/equipo_lista — Miembros del equipo\n"
+    "/finanzas — Bloque finanzas\n"
+    "/marca — Bloque marca\n"
     "/ranking — Ranking de productividad\n"
     "/dedicacion — Dedicacion del equipo hoy\n"
     "/stats — Estadisticas anuales\n"
@@ -836,8 +840,32 @@ async def cmd_extras(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_equipo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show team block."""
+    result = await yarig.get_team_block()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_equipo_lista(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show team members."""
     result = await yarig.get_team()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_personal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show personal block."""
+    result = await yarig.get_personal_block()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_finanzas(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show finance block."""
+    result = await yarig.get_finance_block()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_marca(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show brand block."""
+    result = await yarig.get_brand_block()
     await update.message.reply_text(result, parse_mode="Markdown")
 
 
@@ -1301,11 +1329,15 @@ def main():
     app.add_handler(CommandHandler("pausar", _with_user_session(cmd_pausar)))
     app.add_handler(CommandHandler("finalizar", _with_user_session(cmd_finalizar)))
     app.add_handler(CommandHandler("estado", _with_user_session(cmd_estado)))
+    app.add_handler(CommandHandler("personal", _with_user_session(cmd_personal)))
     app.add_handler(CommandHandler("score", _with_user_session(cmd_score)))
     app.add_handler(CommandHandler("historial", _with_user_session(cmd_historial)))
     app.add_handler(CommandHandler("notificaciones", _with_user_session(cmd_notificaciones)))
     app.add_handler(CommandHandler("extras", _with_user_session(cmd_extras)))
     app.add_handler(CommandHandler("equipo", _with_user_session(cmd_equipo)))
+    app.add_handler(CommandHandler("equipo_lista", _with_user_session(cmd_equipo_lista)))
+    app.add_handler(CommandHandler("finanzas", _with_user_session(cmd_finanzas)))
+    app.add_handler(CommandHandler("marca", _with_user_session(cmd_marca)))
     app.add_handler(CommandHandler("ranking", _with_user_session(cmd_ranking)))
     app.add_handler(CommandHandler("dedicacion", _with_user_session(cmd_dedicacion)))
     app.add_handler(CommandHandler("stats", _with_user_session(cmd_stats)))
