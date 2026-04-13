@@ -11,6 +11,9 @@ TELEGRAM_DAILY_CHAT_ID = os.getenv("TELEGRAM_DAILY_CHAT_ID", "")
 YARIG_EMAIL = os.getenv("YARIG_EMAIL", "")
 YARIG_PASSWORD = os.getenv("YARIG_PASSWORD", "")
 
+# Consejo AdmiraNext Game
+CONSEJO_GAME_API_URL = os.getenv("CONSEJO_GAME_API_URL", "http://127.0.0.1:3030")
+
 # Consejo de Administracion — LLM (desactivado por defecto, usa templates)
 CONSEJO_USE_LLM = os.getenv("CONSEJO_USE_LLM", "false").lower() == "true"
 CONSEJO_LLM_API_URL = os.getenv("CONSEJO_LLM_API_URL", "https://api.anthropic.com/v1/messages")

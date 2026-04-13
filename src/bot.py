@@ -11,6 +11,7 @@ import random
 import secrets
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
+import aiohttp
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -23,7 +24,7 @@ from telegram.ext import (
     filters,
 )
 from telegram.constants import ParseMode
-from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_DAILY_CHAT_ID
+from src.config import CONSEJO_GAME_API_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_DAILY_CHAT_ID
 from src.yarig import YarigClient
 from src.consejo import (
     build_board_table,
@@ -57,7 +58,7 @@ PENDING_LOGIN_EMAIL: dict[int, str] = {}
 
 MADRID_TZ = ZoneInfo("Europe/Madrid")
 LOGIN_EMAIL, LOGIN_PASSWORD = range(2)
-APP_VERSION = "v.2026.13.04.4"
+APP_VERSION = "v.2026.13.04.5"
 
 
 class YarigSessionRouter:
@@ -142,6 +143,10 @@ HELP_TEXT = (
     "/proyectos Marca :: — Proyectos de marca\n"
     "/tarea Marca :: texto — Crear mision de marca\n"
     "/consulta CCO texto — Consulta creativa al consejo\n\n"
+    "Consejo AdmiraNext\n"
+    "/consejoweb texto — Enviar mision a la web del Consejo\n"
+    "/consejoweb codex :: texto — Enviar solo a Codex\n"
+    "/consejoweb claude :: texto — Enviar solo a Claude\n\n"
     "Contexto\n"
     "/proyectos — Lista o busca proyectos\n"
     "/proyecto — Ficha movil de proyecto\n"
@@ -211,6 +216,40 @@ def _mask_email(email: str) -> str:
     else:
         local_masked = local[:2] + "***" + local[-1:]
     return f"{local_masked}@{domain}"
+
+
+def _parse_council_web_prompt(raw: str) -> tuple[str, str]:
+    target = "all"
+    prompt = raw.strip()
+    if "::" in prompt:
+        maybe_target, maybe_prompt = [part.strip() for part in prompt.split("::", 1)]
+        normalized = maybe_target.lower()
+        aliases = {
+            "all": "all",
+            "todos": "all",
+            "todo": "all",
+            "claude": "claude",
+            "codex": "codex",
+            "terminal": "terminal",
+        }
+        if normalized in aliases and maybe_prompt:
+            target = aliases[normalized]
+            prompt = maybe_prompt
+    return target, prompt
+
+
+async def send_council_web_mission(prompt: str, target: str = "all") -> dict:
+    api_base = CONSEJO_GAME_API_URL.rstrip("/")
+    timeout = aiohttp.ClientTimeout(total=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(
+            f"{api_base}/api/teamwork/send-all",
+            json={"prompt": prompt, "target": target},
+        ) as response:
+            data = await response.json(content_type=None)
+            if response.status >= 400:
+                return {"ok": False, "status": response.status, "error": data.get("error") or data}
+            return data
 
 # Conversation state for interactive consejo flow
 CONSEJO_AWAITING_TASK = 0
@@ -1240,6 +1279,66 @@ async def cmd_consulta(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📜 Guardado como acta *#{acta_num}*", parse_mode="Markdown")
 
 
+async def cmd_consejo_web(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a mission to the AdmiraNext Council web/API."""
+    raw = " ".join(context.args).strip() if context.args else ""
+    if not raw:
+        await update.message.reply_text(
+            "Uso: /consejoweb <mision>\n"
+            "Ejemplo: /consejoweb Revisad la estrategia de Finanzas para esta semana\n"
+            "Ejemplo: /consejoweb codex :: Preparad el siguiente bloque de Yarig.Telegram",
+            parse_mode=None,
+        )
+        return
+
+    target, prompt = _parse_council_web_prompt(raw)
+    if not prompt:
+        await update.message.reply_text("La mision no puede estar vacia.", parse_mode=None)
+        return
+
+    await update.message.reply_text(
+        f"Enviando mision al Consejo AdmiraNext ({target})...",
+        parse_mode=None,
+    )
+    try:
+        result = await send_council_web_mission(prompt, target)
+    except Exception as exc:
+        await update.message.reply_text(
+            "No he podido conectar con el servidor local del Consejo AdmiraNext.\n\n"
+            f"Comprueba que este activo en {CONSEJO_GAME_API_URL} y abre:\n"
+            "https://csilvasantin.github.io/ConsejoAdmiraNextGame/council-scumm.html\n\n"
+            f"Detalle: {exc}",
+            parse_mode=None,
+        )
+        return
+
+    if not result.get("ok"):
+        await update.message.reply_text(
+            "El Consejo AdmiraNext ha rechazado la mision.\n\n"
+            f"Detalle: {result.get('error') or result}",
+            parse_mode=None,
+        )
+        return
+
+    results = result.get("results") or []
+    ok_count = sum(1 for item in results if item.get("ok"))
+    fail_count = len(results) - ok_count
+    lines = [
+        "Mision enviada al Consejo AdmiraNext.",
+        f"Target: {target}",
+        f"OK: {ok_count} · Fallos: {fail_count}",
+        "",
+        "Abre la sala:",
+        "https://csilvasantin.github.io/ConsejoAdmiraNextGame/council-scumm.html",
+    ]
+    if fail_count:
+        lines.append("")
+        lines.append("Primer fallo:")
+        first_error = next((item.get("error") for item in results if not item.get("ok") and item.get("error")), "")
+        lines.append(str(first_error)[:500] if first_error else "sin detalle")
+    await update.message.reply_text("\n".join(lines), parse_mode=None)
+
+
 async def consejo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle inline button press from /consejo — select target, then ask for task."""
     query = update.callback_query
@@ -1410,6 +1509,9 @@ def main():
     # Consejo de Administracion
     app.add_handler(CommandHandler("consejo", _with_user_session(cmd_consejo)))
     app.add_handler(CommandHandler("consulta", _with_user_session(cmd_consulta)))
+    app.add_handler(CommandHandler("consejoweb", _with_user_session(cmd_consejo_web)))
+    app.add_handler(CommandHandler("consejo_web", _with_user_session(cmd_consejo_web)))
+    app.add_handler(CommandHandler("admiranext", _with_user_session(cmd_consejo_web)))
     app.add_handler(CommandHandler("actas", _with_user_session(cmd_actas)))
     app.add_handler(CommandHandler("acta", _with_user_session(cmd_acta)))
     consejo_conv = ConversationHandler(

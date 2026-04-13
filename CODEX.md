@@ -1,7 +1,7 @@
 # Proyecto 09 — Yarig.Telegram
 
 Repositorio oficial: **https://github.com/csilvasantin/02.-YarigTelegram**
-Version desplegada: **v.2026.13.04.4**
+Version desplegada: **v.2026.13.04.5**
 
 ## Estado (2026-04-08): BOT PROPIO @YarimTelegramBot OPERATIVO EN MAC MINI
 
@@ -26,6 +26,7 @@ Bot propio: **@YarimTelegramBot** (token independiente, sin conflicto 409 con Me
 - `/yarig`, `/tarea`, `/iniciar`, `/pausar`, `/finalizar`
 - `/fichar`, `/fichar salida`, `/extras`, `/extras fin`
 - `/estado`, `/personal`, `/score`, `/equipo`, `/equipo_lista`, `/finanzas`, `/marca`, `/pedir`, `/peticiones`, `/clientes`, `/cliente`, `/proyectos`, `/proyecto`, `/historial`, `/notificaciones`
+- `/consejoweb`, `/consejo_web`, `/admiranext` — enviar misiones al Consejo AdmiraNext web via API local `http://127.0.0.1:3030`
 - `/ranking` — ranking de productividad del equipo (XP, tareas, estado, medallas)
 - `/dedicacion` — dedicacion del equipo hoy (fichajes, misiones activas/completadas por persona)
 - `/stats` — estadísticas anuales (días trabajados, estados, desglose por mes)

@@ -1,6 +1,6 @@
 # Yarig.Telegram
 
-Version actual: `v.2026.13.04.4`
+Version actual: `v.2026.13.04.5`
 
 Proyecto oficial en GitHub: [csilvasantin/02.-YarigTelegram](https://github.com/csilvasantin/02.-YarigTelegram)
 
@@ -72,6 +72,13 @@ Formato con proyecto: `/tarea Proyecto :: Descripcion`
 | `/resumen_diario` | Forzar el resumen diario en el chat |
 | `/chatid` | Mostrar el id del chat actual |
 | `/help` | Ayuda del bot |
+
+### Consejo AdmiraNext
+| Comando | Descripcion |
+|---------|-------------|
+| `/consejoweb <mision>` | Enviar una mision al Consejo AdmiraNext web |
+| `/consejoweb codex :: <mision>` | Enviar una mision solo a Codex |
+| `/consejoweb claude :: <mision>` | Enviar una mision solo a Claude |
 
 ## Automatizaciones diarias
 
