@@ -73,7 +73,7 @@ HELP_TEXT = (
     "Control de Yarig.ai desde Telegram\n\n"
     "Tareas\n"
     "/yarig — Panel de tareas con controles\n"
-    "/tarea — Añadir tarea con selector de proyecto\n"
+    "/tarea — Añadir tarea directa\n"
     "/iniciar — Iniciar o reanudar tarea\n"
     "/pausar — Pausar tarea\n"
     "/finalizar — Completar tarea\n\n"
@@ -681,11 +681,12 @@ async def cmd_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Add a new task, optionally choosing project from Telegram."""
+    """Add a new task directly, with optional project prefix."""
     if not context.args:
         await update.message.reply_text(
             "Uso: /tarea <descripción>\n"
             "O bien: /tarea <proyecto> :: <descripción>\n"
+            "Ejemplo: /tarea Revisar diseño del dashboard\n"
             "Ejemplo: /tarea Memorizer :: Revisar diseño del dashboard"
         )
         return
@@ -709,27 +710,9 @@ async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _send_yarig_panel(update.message)
         return
 
-    desc = raw
-    projects = await yarig.search_projects(limit=6)
-    if not projects:
-        result = await yarig.add_task(desc)
-        await update.message.reply_text(result)
-        await _send_yarig_panel(update.message)
-        return
-
-    token = secrets.token_urlsafe(6)
-    PENDING_TASKS[token] = {
-        "description": desc,
-        "projects": projects,
-        "from_user_id": update.effective_user.id if update.effective_user else None,
-    }
-    await update.message.reply_text(
-        "Selecciona el proyecto para la tarea:\n"
-        f"→ Tarea: _{yarig._esc(desc)}_\n\n"
-        "Tip: tambien puedes usar `/tarea Proyecto :: descripcion` para crearla directa.",
-        parse_mode="Markdown",
-        reply_markup=_build_project_keyboard(projects, token),
-    )
+    result = await yarig.add_task(raw)
+    await update.message.reply_text(result)
+    await _send_yarig_panel(update.message)
 
 
 async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):

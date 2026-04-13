@@ -8,7 +8,7 @@ Replica la operativa diaria de Yarig.ai dentro de Telegram para que el equipo pu
 
 - panel inline para iniciar, pausar y completar misiones
 - accesos rapidos inline a peticiones, avisos, estado, resumen, onboarding y offboarding
-- creacion de tareas con selector de proyecto
+- creacion directa de tareas desde Telegram
 - estado de jornada, score, equipo, historial y notificaciones
 - bandeja de peticiones recibidas
 - resumen diario automatico en Telegram
@@ -21,7 +21,7 @@ Replica la operativa diaria de Yarig.ai dentro de Telegram para que el equipo pu
 | Comando | Descripcion |
 |---------|-------------|
 | `/yarig` | Panel de tareas con controles inline |
-| `/tarea <desc>` | Añadir tarea con selector de proyecto |
+| `/tarea <desc>` | Añadir tarea directa al proyecto por defecto |
 | `/iniciar [n]` | Iniciar o reanudar tarea |
 | `/pausar` | Pausar tarea activa |
 | `/finalizar [n]` | Completar tarea |
@@ -30,7 +30,7 @@ Replica la operativa diaria de Yarig.ai dentro de Telegram para que el equipo pu
 | `/onboarding` | Ejecutar manualmente la rutina de arranque del dia |
 | `/offboarding` | Ejecutar manualmente la rutina de cierre del dia |
 
-Formato directo recomendado: `/tarea Proyecto :: Descripcion`
+Formato con proyecto: `/tarea Proyecto :: Descripcion`
 
 ### Jornada
 | Comando | Descripcion |
