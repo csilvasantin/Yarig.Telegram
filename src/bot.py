@@ -89,6 +89,8 @@ HELP_TEXT = (
     "/puntos — Puntos del mes\n"
     "/pedir — Pedir tarea a un compañero\n"
     "/peticiones — Bandeja de entrada\n"
+    "/clientes — Lista o busca clientes\n"
+    "/cliente — Ficha movil de cliente\n"
     "/proyectos — Lista o busca proyectos\n"
     "/proyecto — Ficha movil de un proyecto\n"
     "/historial — Historial de tareas\n"
@@ -873,6 +875,20 @@ async def cmd_peticiones(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _send_requests_panel(update.message)
 
 
+async def cmd_clientes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List customers, optionally filtered."""
+    term = " ".join(context.args).strip() if context.args else ""
+    result = await yarig.list_customers(term=term)
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_cliente(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show a compact mobile customer profile."""
+    term = " ".join(context.args).strip() if context.args else ""
+    result = await yarig.get_customer_profile(term)
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
 async def cmd_proyectos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """List projects, optionally filtered."""
     term = " ".join(context.args).strip() if context.args else ""
@@ -1141,6 +1157,8 @@ def main():
     app.add_handler(CommandHandler("puntos", cmd_puntos))
     app.add_handler(CommandHandler("pedir", cmd_pedir))
     app.add_handler(CommandHandler("peticiones", cmd_peticiones))
+    app.add_handler(CommandHandler("clientes", cmd_clientes))
+    app.add_handler(CommandHandler("cliente", cmd_cliente))
     app.add_handler(CommandHandler("proyectos", cmd_proyectos))
     app.add_handler(CommandHandler("proyecto", cmd_proyecto))
     app.add_handler(CommandHandler("chatid", cmd_chatid))

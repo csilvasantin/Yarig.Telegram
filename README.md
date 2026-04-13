@@ -48,6 +48,8 @@ Formato directo recomendado: `/tarea Proyecto :: Descripcion`
 | `/equipo` | Miembros del equipo |
 | `/pedir <nombre> <tarea>` | Enviar peticion a compañero |
 | `/peticiones` | Ver y gestionar peticiones recibidas |
+| `/clientes [texto]` | Lista o busca clientes |
+| `/cliente <texto>` | Ficha movil de cliente con proyectos y actividad de hoy |
 | `/proyectos [texto]` | Lista o busca proyectos |
 | `/proyecto <texto>` | Ficha movil de proyecto con actividad de hoy y acciones rapidas |
 | `/historial` | Historial de tareas |

@@ -35,7 +35,7 @@ La nueva Yarig.ai no deberia ser solo una web mas bonita. Debe ser un sistema de
 | Productividad equipo | Ranking y dedicacion | Alta via `/ranking`, `/dedicacion` | Operativo |
 | Equipo | Listado y busqueda de companeros | Media via `/equipo`, `/pedir` | Mejorar |
 | Proyectos | Buscar proyecto y crear tareas asociadas | Media via `/proyectos`, `/proyecto`, `/tarea Proyecto :: desc` | En curso |
-| Clientes | Clientes y oportunidades | Baja | Pendiente |
+| Clientes | Clientes y oportunidades | Media via `/clientes`, `/cliente` | En curso |
 | Notificaciones | Avisos recientes | Media via `/notificaciones` | Mejorar acciones |
 | Muro | Feed, emergencias, actividad | Baja | Pendiente |
 | Reuniones | Reuniones y eventos | Sin cobertura | Pendiente |
@@ -224,15 +224,12 @@ Pendiente prioritario:
 
 Cobertura actual:
 
-- indirecta en busqueda de proyectos;
-- cliente Admira hardcodeado como `id_customer=2396`.
+- `/clientes [texto]` busca clientes con `user/json_get_customers_and_mates_like`;
+- `/cliente <nombre>` muestra ficha movil inicial con proyectos y actividad de hoy;
+- proyectos ya puede recibir formato `Cliente :: filtro`.
 
 Pendiente prioritario:
 
-- descubrir endpoint/listado de clientes;
-- `/clientes [texto]`;
-- `/cliente <nombre>`;
-- proyectos por cliente;
 - tareas, oportunidades, reuniones, facturacion y estado por cliente;
 - resumen IA de cliente.
 

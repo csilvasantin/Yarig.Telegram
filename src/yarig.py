@@ -136,6 +136,28 @@ def _project_customer_label(project: dict) -> str:
     return ""
 
 
+def _customer_label(customer: dict) -> str:
+    return str(
+        customer.get("label")
+        or customer.get("value")
+        or customer.get("name")
+        or customer.get("customer")
+        or customer.get("client")
+        or "Cliente"
+    ).strip()
+
+
+def _customer_id(customer: dict) -> str:
+    return str(
+        customer.get("id")
+        or customer.get("customer_id")
+        or customer.get("id_customer")
+        or customer.get("client_id")
+        or customer.get("id_client")
+        or ""
+    ).strip()
+
+
 def _format_elapsed_compact(start_value: str | None, end_value: str | None = None) -> str:
     start_dt = _parse_dt(start_value)
     if start_dt is None:
@@ -164,6 +186,7 @@ class YarigClient:
         self._cache_ttl_seconds = 300
         self._team_cache: dict | None = None
         self._projects_cache: dict[str, dict] = {}
+        self._customers_cache: dict[str, dict] = {}
 
     async def _ensure_session(self):
         if self._session is None or self._session.closed:
@@ -1063,6 +1086,137 @@ class YarigClient:
                 return mate
         return mates[0] if mates else None
 
+    # ── Clientes ────────────────────────────────────────────
+
+    async def search_customers(
+        self,
+        term: str = "",
+        refresh: bool = False,
+        limit: int | None = None,
+    ) -> list[dict]:
+        cache_key = term.strip().lower() or "*"
+        cached = self._customers_cache.get(cache_key)
+        if not refresh and self._cache_is_fresh(cached):
+            customers = cached.get("items", [])
+            return customers[:limit] if limit is not None else customers
+
+        result = await self._request(USERS_URL, {"term": term})
+        customers = []
+        if isinstance(result, dict):
+            for key in ("customers", "clients", "data", "items"):
+                value = result.get(key)
+                if isinstance(value, list):
+                    customers = [item for item in value if isinstance(item, dict)]
+                    break
+        elif isinstance(result, list):
+            customers = [item for item in result if isinstance(item, dict)]
+
+        if customers:
+            self._customers_cache[cache_key] = {"ts": time.time(), "items": customers}
+        return customers[:limit] if limit is not None else customers
+
+    async def find_customer(self, term: str) -> dict | None:
+        clean = str(term or "").strip()
+        if not clean:
+            return None
+
+        term_key = _normalize_lookup(clean)
+        direct_matches = await self.search_customers(clean)
+        for customer in direct_matches:
+            label_key = _normalize_lookup(_customer_label(customer))
+            if label_key and (term_key == label_key or term_key in label_key):
+                return customer
+
+        cached_customers = await self.search_customers("")
+        for customer in cached_customers:
+            label_key = _normalize_lookup(_customer_label(customer))
+            if label_key and (term_key == label_key or term_key in label_key):
+                return customer
+
+        return direct_matches[0] if direct_matches else None
+
+    async def list_customers(self, term: str = "") -> str:
+        customers = await self.search_customers(term=term)
+        if not customers:
+            return "⚠️ No se encontraron clientes"
+
+        header = "🏢 *Clientes*\n"
+        if term:
+            header = f"🏢 *Clientes* — filtro: _{self._esc(term)}_\n"
+
+        lines = [header]
+        for customer in customers[:15]:
+            name = self._esc(_customer_label(customer))
+            cid = _customer_id(customer) or "?"
+            lines.append(f"• {name} (id: {cid})")
+        return "\n".join(lines)
+
+    async def get_customer_profile(self, term: str) -> str:
+        clean_term = str(term or "").strip()
+        if not clean_term:
+            return (
+                "Uso: `/cliente <nombre>`\n"
+                "Ejemplo: `/cliente Admira`"
+            )
+
+        customer = await self.find_customer(clean_term)
+        if not customer:
+            suggestions = await self.search_customers(term=clean_term, limit=5)
+            if not suggestions:
+                return f"⚠️ No he encontrado clientes para: _{self._esc(clean_term)}_"
+            lines = [f"⚠️ No he encontrado una ficha clara para _{self._esc(clean_term)}_. Coincidencias:"]
+            for item in suggestions:
+                lines.append(f"• {self._esc(_customer_label(item))} (id: {_customer_id(item) or '?'})")
+            return "\n".join(lines)
+
+        label = _customer_label(customer)
+        customer_id = _customer_id(customer)
+        if not customer_id:
+            return f"⚠️ He encontrado _{self._esc(label)}_, pero no viene id de cliente en la respuesta."
+
+        projects = await self.search_projects(term="", customer_id=customer_id, limit=12)
+        data = await self.get_today_data()
+        tasks = (data or {}).get("tasks", [])
+        project_names = {_normalize_lookup(_project_label(project)) for project in projects}
+        customer_tasks = []
+        for task in tasks:
+            task_project_key = _normalize_lookup(str(task.get("project") or ""))
+            if task_project_key and any(task_project_key == name or task_project_key in name or name in task_project_key for name in project_names if name):
+                customer_tasks.append(task)
+
+        active_count = sum(1 for task in customer_tasks if task.get("start_time") and not task.get("end_time") and task.get("finished", "0") == "0")
+        pending_count = sum(1 for task in customer_tasks if not task.get("start_time") and task.get("finished", "0") == "0")
+        paused_count = sum(1 for task in customer_tasks if task.get("start_time") and task.get("end_time") and task.get("finished", "0") == "0")
+        finished_count = sum(1 for task in customer_tasks if task.get("finished", "0") == "1")
+
+        lines = [
+            "🏢 *Yarig.ai | Cliente*",
+            f"*{self._esc(label)}*",
+            f"id: `{self._esc(customer_id)}`",
+            "",
+            f"Proyectos detectados: *{len(projects)}*",
+        ]
+        if projects:
+            for project in projects[:8]:
+                lines.append(f"• {self._esc(_project_label(project))} (id: {project.get('id', '?')})")
+            if len(projects) > 8:
+                lines.append(f"… y {len(projects) - 8} mas")
+        else:
+            lines.append("No he encontrado proyectos asociados con el endpoint actual.")
+
+        lines.extend([
+            "",
+            "Actividad de hoy:",
+            f"● {active_count} activas · ◌ {pending_count} pendientes · ⏸ {paused_count} en pausa · ☑ {finished_count} completadas",
+            "",
+            "Acciones rapidas:",
+            f"`/proyectos {self._esc(label)} :: `",
+            f"`/cliente {self._esc(clean_term)}`",
+            "",
+            "Pendiente de descubrir: ficha completa de cliente, oportunidades, reuniones y facturacion.",
+        ])
+        return "\n".join(lines)
+
     def _normalize_request_item(self, item: dict) -> dict:
         request_id = str(
             item.get("id")
@@ -1216,6 +1370,17 @@ class YarigClient:
         return direct_matches[0] if direct_matches else None
 
     async def list_projects(self, term: str = "", customer_id: str = "2396") -> str:
+        customer_label = ""
+        if "::" in str(term):
+            customer_term, project_term = [part.strip() for part in str(term).split("::", 1)]
+            if customer_term:
+                customer = await self.find_customer(customer_term)
+                if not customer:
+                    return f"⚠️ No encuentro el cliente '{self._esc(customer_term)}'."
+                customer_id = _customer_id(customer) or customer_id
+                customer_label = _customer_label(customer)
+                term = project_term
+
         projects = await self.search_projects(term=term, customer_id=customer_id)
         if not projects:
             return "⚠️ No se encontraron proyectos"
@@ -1223,6 +1388,11 @@ class YarigClient:
         header = "📁 *Proyectos*\n"
         if term:
             header = f"📁 *Proyectos* — filtro: _{self._esc(term)}_\n"
+        if customer_label:
+            header = f"📁 *Proyectos* — cliente: _{self._esc(customer_label)}_"
+            if term:
+                header += f" · filtro: _{self._esc(term)}_"
+            header += "\n"
 
         lines = [header]
         for project in projects[:15]:
