@@ -99,11 +99,11 @@ HELP_TEXT = (
     "✦ Yarig.Telegram\n"
     f"{APP_VERSION}\n"
     "Control de Yarig.ai desde Telegram\n\n"
-    "*Cuenta*\n"
+    "Cuenta\n"
     "/login — Conectar tu usuario de Yarig.ai\n"
     "/logout — Cerrar tu sesion en este bot\n"
     "/cuenta — Ver que usuario esta conectado\n\n"
-    "*Personal*\n"
+    "Personal\n"
     "/personal — Panel personal: jornada, foco, XP y acciones\n"
     "/estado — Estado actual de jornada y tarea\n"
     "/fichar — Fichar entrada\n"
@@ -114,7 +114,7 @@ HELP_TEXT = (
     "/puntos — Puntos del mes\n"
     "/stats — Estadisticas anuales\n"
     "/historial — Historial de tareas\n\n"
-    "*Tareas*\n"
+    "Tareas\n"
     "/yarig — Panel de tareas con controles\n"
     "/tarea texto — Añadir tarea directa\n"
     "/tarea Proyecto :: texto — Añadir tarea a proyecto\n"
@@ -124,25 +124,25 @@ HELP_TEXT = (
     "/random — Mision sugerida por el bot\n"
     "/onboarding — Arranque del dia\n"
     "/offboarding — Cierre del dia\n\n"
-    "*Equipo*\n"
+    "Equipo\n"
     "/equipo — Panel equipo: actividad, ranking y accesos\n"
     "/equipo_lista — Listado de companeros\n"
     "/ranking — Ranking de productividad\n"
     "/dedicacion — Dedicacion del equipo hoy\n"
     "/pedir nombre texto — Pedir tarea a un companero\n"
     "/peticiones — Bandeja de peticiones\n\n"
-    "*Finanzas*\n"
+    "Finanzas\n"
     "/finanzas — Panel finanzas: facturas, clientes y acciones\n"
     "/clientes — Lista o busca clientes\n"
     "/cliente — Ficha movil de cliente\n"
     "/proyectos Cliente :: — Proyectos de un cliente\n"
     "/tarea Finanzas :: texto — Crear mision financiera\n\n"
-    "*Marca*\n"
+    "Marca\n"
     "/marca — Panel marca/RRSS\n"
     "/proyectos Marca :: — Proyectos de marca\n"
     "/tarea Marca :: texto — Crear mision de marca\n"
     "/consulta CCO texto — Consulta creativa al consejo\n\n"
-    "*Contexto*\n"
+    "Contexto\n"
     "/proyectos — Lista o busca proyectos\n"
     "/proyecto — Ficha movil de proyecto\n"
     "/notificaciones — Avisos recientes\n"
@@ -508,7 +508,7 @@ async def handle_yarig_control(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if action == "yt_help":
         await query.answer("Mostrando ayuda...")
-        await query.message.reply_text(HELP_TEXT, parse_mode="Markdown")
+        await query.message.reply_text(HELP_TEXT, parse_mode=None)
         return
 
     if action == "yt_requests":
@@ -1000,7 +1000,7 @@ async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show help."""
-    await update.message.reply_text(HELP_TEXT, parse_mode="Markdown")
+    await update.message.reply_text(HELP_TEXT, parse_mode=None)
 
 
 async def cmd_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
