@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proyecto 02 — YarigTelegram</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Share Tech Mono',monospace;background:radial-gradient(circle at top,rgba(30,100,45,.2),transparent 32%),linear-gradient(180deg,#04110a,#020703);color:#b7f7c7;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#mc{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.4}
+.card{position:relative;z-index:1;background:rgba(6,19,10,.88);border:1px solid rgba(0,255,110,.18);border-radius:18px;padding:40px 44px;max-width:520px;width:90%;backdrop-filter:blur(8px)}
+.num{font-size:3rem;color:rgba(57,255,111,.25);font-weight:bold;line-height:1;margin-bottom:8px}
+h1{font-size:1.4rem;color:#39ff6f;letter-spacing:2px;margin-bottom:14px}
+p{color:#5ca772;font-size:.85rem;line-height:1.6;margin-bottom:28px}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn{color:#5ca772;border:1px solid rgba(0,255,110,.2);border-radius:8px;padding:7px 16px;font-family:inherit;font-size:.78rem;text-decoration:none;transition:all .15s}
+.btn:hover{color:#39ff6f;border-color:rgba(0,255,110,.5);background:rgba(0,255,110,.05)}
+.btn.primary{color:#39ff6f;border-color:rgba(0,255,110,.4)}
+.back{margin-top:24px;font-size:.72rem;color:rgba(92,167,114,.5)}
+.back a{color:rgba(92,167,114,.5);text-decoration:none}
+.back a:hover{color:#39ff6f}
+</style>
+</head>
+<body>
+<canvas id="mc"></canvas>
+<div class="card">
+  <div class="num">02</div>
+  <h1>YarigTelegram</h1>
+  <p>Control completo de Yarig.ai desde Telegram con panel interactivo de tareas, resumenes automaticos y arranque diario de mision.</p>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/csilvasantin/02.-YarigTelegram" target="_blank">GitHub</a>
+    
+  </div>
+  <p class="back"><a href="https://csilvasantin.github.io/diario/repos.html">← todos los repos</a></p>
+</div>
+<script>
+(function(){const c=document.getElementById('mc'),x=c.getContext('2d'),g="01アイウエオABCDEFGHIJKLMNOP{}[]",s=14;let cols,drops;function r(){c.width=innerWidth;c.height=innerHeight;cols=Math.floor(c.width/s);drops=Array(cols).fill(1)}function d(){x.fillStyle='rgba(2,7,3,.05)';x.fillRect(0,0,c.width,c.height);x.fillStyle='#39ff6f';x.font=s+'px Share Tech Mono';drops.forEach((y,i)=>{x.fillText(g[Math.floor(Math.random()*g.length)],i*s,y*s);if(y*s>c.height&&Math.random()>.975)drops[i]=0;drops[i]++})}r();addEventListener('resize',r);setInterval(d,50)})()
+</script>
+</body>
+</html>
